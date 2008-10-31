@@ -1,9 +1,9 @@
 TARGET = keychain_access
 
-CXXFLAGS  = -pipe -Wall -pedantic 
+CXXFLAGS  = -pipe -Wall -pedantic -g
 SRC_FILES = $(wildcard *.cc)
 O_FILES   = $(SRC_FILES:%.cc=%.o)
-LIBS      = -framework Security
+LIBS      = -framework Security -framework CoreFoundation
 
 
 all: $(TARGET)
