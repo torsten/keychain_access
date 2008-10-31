@@ -6,6 +6,8 @@ O_FILES   = $(SRC_FILES:%.cc=%.o)
 LIBS      = -framework Security -framework CoreFoundation
 
 
+.PHONY: all clean run
+
 all: $(TARGET)
 
 $(TARGET): $(O_FILES)

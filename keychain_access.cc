@@ -6,30 +6,52 @@
 #include <Security/Security.h>
 
 
+void ka_print_attribute_list(const SecKeychainAttributeList *p_list)
+{
+  printf("count: %u\n", p_list->count);
+  
+  
+}
+
+
 int main(int argc, char const *argv[])
 {
   if(argc != 2)
   {
-    fprintf(stderr, "Usage: keychain_access item_name\n");
+    fprintf(stderr, "Usage: keychain_access [-vh] item_name\n");
     return 1;
     
     // TODO:
-    // * -t for "type"
-    // * -a to limit to a certain attribute
-    // * -o to specify output format
+    // -t for "type"
+    // -a to limit to a certain attribute
+    // -o to specify output format
+    // -v
+    // -h
+    // --pem
   }
   
   
   const char *itemName = argv[1];
+  
   OSStatus status = 0;
   SecKeychainItemRef itemRef = 0;
   SecKeychainSearchRef searchRef = 0;
   
   
+  SecKeychainAttribute labelAttr;
+  labelAttr.tag = kSecLabelItemAttr;
+  labelAttr.length = strlen(itemName);
+  labelAttr.data = (void*)itemName;
+  
+  SecKeychainAttributeList searchList;
+  searchList.count = 1;
+  searchList.attr = &labelAttr;
+  
+  
   status = SecKeychainSearchCreateFromAttributes(
       NULL, // Search all kechains
-      CSSM_DL_DB_RECORD_ALL_KEYS,
-      NULL, // Get all attributes
+      CSSM_DL_DB_RECORD_ANY,
+      &searchList,
       &searchRef);
   
   if(status != noErr)
@@ -38,11 +60,21 @@ searchFailed:
     if(searchRef)
       CFRelease(searchRef);
     
+    if(itemRef)
+      CFRelease(itemRef);
+    
+    // Maybe show the full name of the error
     fprintf(stderr, "Search for item named %s failed: %d\n",
-        itemName, status);
+        itemName, (int)status);
     
     return 1;
   }
+  
+  
+  SecItemClass itemClass;
+  UInt32 length;
+  void *outData;
+  
   
   for(;;)
   {
@@ -52,9 +84,64 @@ searchFailed:
     if(status != noErr)
       break;
     
+    // status = SecKeychainItemCopyContent(
+    //     itemRef, &itemClass, &attrList, &length, &outData);
     
+    SecKeychainAttributeList *attrListPtr;
+    
+    
+    status = SecKeychainItemCopyAttributesAndData(
+        itemRef,
+        NULL,
+        &itemClass,
+        &attrListPtr,
+        &length,
+        NULL);
+    
+    
+    
+    if(status != noErr)
+      break;
+    
+    printf("item class: ");
+    
+    switch(itemClass)
+    {
+    case kSecInternetPasswordItemClass:
+      printf("kSecInternetPasswordItemClass");
+      break;
+    case kSecGenericPasswordItemClass:
+      printf("kSecGenericPasswordItemClass");
+      break;
+    case kSecAppleSharePasswordItemClass:
+      printf("kSecAppleSharePasswordItemClass");
+      break;
+    case kSecCertificateItemClass:
+      printf("kSecCertificateItemClass");
+      break;
+    case CSSM_DL_DB_RECORD_PUBLIC_KEY:
+      printf("CSSM_DL_DB_RECORD_PUBLIC_KEY");
+      break;
+    case CSSM_DL_DB_RECORD_PRIVATE_KEY:
+      printf("CSSM_DL_DB_RECORD_PRIVATE_KEY");
+      break;
+    case CSSM_DL_DB_RECORD_SYMMETRIC_KEY:
+      printf("CSSM_DL_DB_RECORD_SYMMETRIC_KEY");
+      break;
+    case CSSM_DL_DB_RECORD_ALL_KEYS:
+      printf("CSSM_DL_DB_RECORD_ALL_KEYS");
+      break;
+    default:
+      printf("Unknown item class: %lu", itemClass);
+    }
+    
+    printf("\n");
+    
+    ka_print_attribute_list(attrListPtr);
+    
+    printf("<%s> (%u)\n", (char*)outData, length);
+    // SecKeychainItemFreeContent(); each time after a CopyContent
   }
-  
   
   if(status != errSecItemNotFound)
     goto searchFailed;
