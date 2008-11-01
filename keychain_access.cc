@@ -74,6 +74,7 @@ searchFailed:
   SecItemClass itemClass;
   UInt32 length;
   void *outData;
+  SecKeychainAttributeList *attrListPtr;
   
   
   for(;;)
@@ -84,19 +85,26 @@ searchFailed:
     if(status != noErr)
       break;
     
-    // status = SecKeychainItemCopyContent(
-    //     itemRef, &itemClass, &attrList, &length, &outData);
     
-    SecKeychainAttributeList *attrListPtr;
+    SecKeychainAttribute attrz[2];
+    attrz[0].tag = kSecLabelItemAttr;
+    attrz[1].tag = kSecKeyKeySizeInBits;
+    
+    SecKeychainAttributeList attrList;
+    attrList.count = 1;
+    attrList.attr = attrz;
+    
+    status = SecKeychainItemCopyContent(
+        itemRef, &itemClass, &attrList, &length, &outData);
     
     
-    status = SecKeychainItemCopyAttributesAndData(
-        itemRef,
-        NULL,
-        &itemClass,
-        &attrListPtr,
-        &length,
-        NULL);
+    // status = SecKeychainItemCopyAttributesAndData(
+    //     itemRef,
+    //     NULL,
+    //     &itemClass,
+    //     &attrListPtr,
+    //     &length,
+    //     NULL);
     
     
     
@@ -141,6 +149,47 @@ searchFailed:
     
     printf("<%s> (%u)\n", (char*)outData, length);
     // SecKeychainItemFreeContent(); each time after a CopyContent
+    
+    const CSSM_KEY *cssmKeyPtr;
+    
+    status = SecKeyGetCSSMKey(
+       (SecKeyRef)itemRef, &cssmKeyPtr);
+    
+    
+    
+    printf("status: %d size: %lu data: %s size: %i\n",
+        status, cssmKeyPtr->KeyData.Length, attrz[0].data,
+        cssmKeyPtr->KeyHeader.LogicalKeySizeInBits);
+    
+    
+    SecKeyImportExportParameters keyParams;
+    keyParams.version = SEC_KEY_IMPORT_EXPORT_PARAMS_VERSION;
+    keyParams.flags = 0; // kSecKeySecurePassphrase
+    keyParams.passphrase = CFSTR("123");
+    keyParams.alertTitle = CFSTR("TITLE");
+    keyParams.alertPrompt = CFSTR("PROMPT");
+    
+    
+    // uint32_t                version;
+    // SecKeyImportExportFlags flags;
+    // CFTypeRef               passphrase;
+    // CFStringRef             alertTitle;
+    // CFStringRef             alertPrompt;
+    
+    
+    
+    CFDataRef exportedData;
+    
+    status = SecKeychainItemExport(
+        itemRef,
+        kSecFormatWrappedOpenSSL, // kSecFormatOpenSSL
+        kSecItemPemArmour,
+        &keyParams,
+        &exportedData);
+    
+    printf("status: %d\n", status);
+    
+    
   }
   
   if(status != errSecItemNotFound)
