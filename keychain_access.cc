@@ -165,7 +165,7 @@ searchFailed:
     SecKeyImportExportParameters keyParams;
     keyParams.version = SEC_KEY_IMPORT_EXPORT_PARAMS_VERSION;
     keyParams.flags = 0; // kSecKeySecurePassphrase
-    keyParams.passphrase = CFSTR("123");
+    keyParams.passphrase = CFSTR("");
     keyParams.alertTitle = CFSTR("TITLE");
     keyParams.alertPrompt = CFSTR("PROMPT");
     
@@ -182,12 +182,17 @@ searchFailed:
     
     status = SecKeychainItemExport(
         itemRef,
-        kSecFormatWrappedOpenSSL, // kSecFormatOpenSSL
+        kSecFormatWrappedPKCS8,
         kSecItemPemArmour,
         &keyParams,
         &exportedData);
-    
+        
     printf("status: %d\n", status);
+    
+    if(status == noErr)
+    {
+      printf("%s\n", CFDataGetBytePtr(exportedData));
+    }
     
     
   }
