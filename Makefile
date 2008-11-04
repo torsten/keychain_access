@@ -18,3 +18,6 @@ clean:
 
 run: $(TARGET)
 	./$(TARGET)
+
+install:
+	@echo No yet implemented.

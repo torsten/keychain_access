@@ -1,6 +1,34 @@
+/*
+ * Copyright (C) 2008 Torsten Becker. All rights reserved.
+ * 
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to
+ * deal in the Software without restriction, including without limitation the
+ * rights to use, copy, modify, merge, publish, distribute, sublicense, and/or
+ * sell copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ * 
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
+ * 
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
+ * THE AUTHORS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER 
+ * IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+ *
+ * keychain_access.cc, created on 04-Nov-2008.
+ */
+
+// http://ianhenderson.org/repos/delimport/Keychain/
+
 #include <cstdarg>
 #include <cstdio>
 #include <cstring>
+
+#include <unistd.h>
+#include <sys/uio.h>
 
 #include <CoreFoundation/CoreFoundation.h>
 #include <Security/Security.h>
@@ -25,9 +53,12 @@ int main(int argc, char const *argv[])
     // -t for "type"
     // -a to limit to a certain attribute
     // -o to specify output format
-    // -v
-    // -h
+    // -v version
+    // -h help
     // --pem
+    // -P for encrypting the key with passphrase
+    // -k keyname
+    // -p pwname for searching a password
   }
   
   
@@ -145,7 +176,7 @@ searchFailed:
     
     printf("\n");
     
-    ka_print_attribute_list(attrListPtr);
+    // ka_print_attribute_list(attrListPtr);
     
     printf("<%s> (%u)\n", (char*)outData, length);
     // SecKeychainItemFreeContent(); each time after a CopyContent
@@ -165,7 +196,7 @@ searchFailed:
     SecKeyImportExportParameters keyParams;
     keyParams.version = SEC_KEY_IMPORT_EXPORT_PARAMS_VERSION;
     keyParams.flags = 0; // kSecKeySecurePassphrase
-    keyParams.passphrase = CFSTR("");
+    keyParams.passphrase = CFSTR("1234");
     keyParams.alertTitle = CFSTR("TITLE");
     keyParams.alertPrompt = CFSTR("PROMPT");
     
@@ -186,12 +217,16 @@ searchFailed:
         kSecItemPemArmour,
         &keyParams,
         &exportedData);
-        
+      
     printf("status: %d\n", status);
     
     if(status == noErr)
     {
-      printf("%s\n", CFDataGetBytePtr(exportedData));
+      write(fileno(stdout),
+          CFDataGetBytePtr(exportedData), CFDataGetLength(exportedData));
+
+      // Now decrypt it with openssl, see crypto(3)
+      
     }
     
     
@@ -240,126 +275,3 @@ searchFailed:
   
   return 0;
 }
-
-
-
-
-#if 0
-
-
-
-#include <Security/Security.h>
-#include <CoreServices/CoreServices.h>
- 
-//Call SecKeychainAddGenericPassword to add a new password to the keychain:
-OSStatus StorePasswordKeychain (void* password,UInt32 passwordLength)
-{
- OSStatus status;
- status = SecKeychainAddGenericPassword (
-                NULL,            // default keychain
-                10,              // length of service name
-                "SurfWriter",    // service name
-                10,              // length of account name
-                "MyUserAcct",    // account name
-                passwordLength,  // length of password
-                password,        // pointer to password data
-                NULL             // the item reference
-    );
-    return (status);
- }
- 
-//Call SecKeychainFindGenericPassword to get a password from the keychain:
-OSStatus GetPasswordKeychain (void *passwordData,UInt32 *passwordLength,
-                                                SecKeychainItemRef *itemRef)
-{
- OSStatus status1 ;
- 
- 
- status1 = SecKeychainFindGenericPassword (
-                 NULL,           // default keychain
-                 10,             // length of service name
-                 "SurfWriter",   // service name
-                 10,             // length of account name
-                 "MyUserAcct",   // account name
-                 passwordLength,  // length of password
-                 passwordData,   // pointer to password data
-                 itemRef         // the item reference
-    );
-     return (status1);
- }
- 
-//Call SecKeychainItemModifyAttributesAndData to change the password for
-// an item already in the keychain:
-OSStatus ChangePasswordKeychain (SecKeychainItemRef itemRef)
-{
-    OSStatus status;
-    void * password = "myNewP4sSw0rD";
-    UInt32 passwordLength = strlen(password);
- 
- status = SecKeychainItemModifyAttributesAndData (
-                 itemRef,         // the item reference
-                 NULL,            // no change to attributes
-                 passwordLength,  // length of password
-                 password         // pointer to password data
-    );
-     return (status);
- }
- 
- 
-/* ********************************************************************** */
- 
-int main (int argc, const char * argv[]) {
-    OSStatus status;
-    OSStatus status1;
- 
-     void * myPassword = "myP4sSw0rD";
-     UInt32 myPasswordLength = strlen(myPassword);
- 
-     void *passwordData = nil; // will be allocated and filled in by
-                               //SecKeychainFindGenericPassword
-     SecKeychainItemRef itemRef = nil;
-     UInt32 passwordLength = nil;
- 
-    status1 = GetPasswordKeychain (&passwordData,&passwordLength,&itemRef);  //Call
-                                                //SecKeychainFindGenericPassword
-        if (status1 == noErr)       //If call was successful, authenticate user
-                                    //and continue.
-        {
-        //Free the data allocated by SecKeychainFindGenericPassword:
-    status = SecKeychainItemFreeContent (
-                 NULL,           //No attribute data to release
-                 passwordData    //Release data buffer allocated by
-                 //SecKeychainFindGenericPassword
-    );
- }
- 
-    if (status1 == errSecItemNotFound) { //Is password on keychain?
-    /*
-    If password is not on keychain, display dialog to prompt user for
-    name and password.
-    Authenticate user.  If unsuccessful, prompt user again for name and password.
-    If successful, ask user whether to store new password on keychain; if no, return.
-    If yes, store password:
-    */
-    status = StorePasswordKeychain (myPassword,myPasswordLength); //Call
-                                                      // SecKeychainAddGenericPassword
-    return (status);
-    }
- 
-    /*
-    If password is on keychain, authenticate user.
-    If authentication succeeds, return.
-    If authentication fails, prompt user for new user name and password and
-     authenticate again.
-    If unsuccessful, prompt again.
-    If successful, ask whether to update keychain with new information.  If no, return.
-    If yes, store new information:
-    */
-    status = ChangePasswordKeychain (itemRef);  //Call
-                                            // SecKeychainItemModifyAttributesAndData
-    if (itemRef) CFRelease(itemRef);
-    return (status);
- 
- }
-
-#endif
