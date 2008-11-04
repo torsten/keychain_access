@@ -23,12 +23,11 @@
 
 // http://ianhenderson.org/repos/delimport/Keychain/
 
-#include <cstdarg>
-#include <cstdio>
-#include <cstring>
-
-#include <unistd.h>
+#include <stdarg.h>
+#include <stdio.h>
+#include <string.h>
 #include <sys/uio.h>
+#include <unistd.h>
 
 #include <CoreFoundation/CoreFoundation.h>
 #include <Security/Security.h>

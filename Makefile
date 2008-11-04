@@ -1,8 +1,8 @@
 TARGET = keychain_access
 
-CXXFLAGS  = -pipe -Wall -pedantic -g
-SRC_FILES = $(wildcard *.cc)
-O_FILES   = $(SRC_FILES:%.cc=%.o)
+CFLAGS    = -pipe -std=c99 -Wall -pedantic -g
+SRC_FILES = $(wildcard *.c)
+O_FILES   = $(SRC_FILES:%.c=%.o)
 LIBS      = -framework Security -framework CoreFoundation
 
 
@@ -11,7 +11,7 @@ LIBS      = -framework Security -framework CoreFoundation
 all: $(TARGET)
 
 $(TARGET): $(O_FILES)
-	g++ $(O_FILES) -o $(TARGET) $(LIBS)
+	gcc $(O_FILES) -o $(TARGET) $(LIBS)
 
 clean:
 	rm -f *.o $(TARGET)
