@@ -1,9 +1,21 @@
-TARGET = keychain_access
+TARGET    = keychain_access
+VERSION   = v0
+REV       = $(shell git rev-parse --short=4 HEAD || cat git-rev)
 
-CFLAGS    = -pipe -std=c99 -Wall -pedantic -g
+DEBUG     = -g
+DEFINES   = -DKCA_VERSION='"'$(VERSION)'"'
+
+# If we somehow found a revision number
+ifneq ($(REV),)
+DEFINES  += -DKCA_REV='"'$(REV)'"'
+endif
+
+
+CFLAGS    = -pipe -std=c99 -Wall -pedantic $(DEBUG) $(DEFINES)
 SRC_FILES = $(wildcard *.c)
 O_FILES   = $(SRC_FILES:%.c=%.o)
 LIBS      = -framework Security -framework CoreFoundation
+
 
 
 .PHONY: all clean run

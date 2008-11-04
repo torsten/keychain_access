@@ -123,7 +123,13 @@ int main(int argc, char const *argv[])
   
   if(strcmp(argv[1], "-v") == 0)
   {
-    printf("This is keychain_access version v0 (f4ad).\n");
+#ifndef KCA_VERSION
+#define KCA_VERSION "v0"
+#endif
+#ifndef KCA_REV
+#define KCA_REV "n/a"
+#endif
+    printf("This is keychain_access "KCA_VERSION" ("KCA_REV").\n");
     return 0;
   }
   
@@ -241,9 +247,10 @@ searchFailed:
     case kSecAppleSharePasswordItemClass:
       printf("kSecAppleSharePasswordItemClass");
       break;
-    case kSecCertificateItemClass:
-      printf("kSecCertificateItemClass");
-      break;
+    // Causes: "warning: overflow in constant expression"
+    // case kSecCertificateItemClass:
+    //   printf("kSecCertificateItemClass");
+    //   break;
     case CSSM_DL_DB_RECORD_SYMMETRIC_KEY:
       printf("CSSM_DL_DB_RECORD_SYMMETRIC_KEY");
       break;
