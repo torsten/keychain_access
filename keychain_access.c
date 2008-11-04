@@ -34,9 +34,8 @@
 #include <CoreFoundation/CoreFoundation.h>
 #include <Security/Security.h>
 
-#include <openssl/pem.h>
 #include <openssl/err.h>
-#include <openssl/evp.h>
+#include <openssl/pem.h>
 #include <openssl/pkcs12.h>
 
 
@@ -83,8 +82,6 @@ int kca_print_private_key(SecKeychainItemRef p_keyItem,
   
   status = SecKeychainItemExport(
       p_keyItem,
-      // kSecFormatPKCS12,
-      // 0,
       kSecFormatWrappedPKCS8,
       kSecItemPemArmour,
       &keyParams,
@@ -98,64 +95,87 @@ int kca_print_private_key(SecKeychainItemRef p_keyItem,
       perror("pipe(2) error");
       return 1;
     }
-  
+    
     FILE *fp;
     fp = fdopen(opensslPipe[0], "r");
-    
     if(fp == NULL)
     {
       perror("fdopen(3) error");
       return 1;
     }
     
-    // int fd = open("mhh.pem", O_WRONLY);
     ssize_t written;
     written = write(opensslPipe[1],
         CFDataGetBytePtr(exportedData), CFDataGetLength(exportedData));
     
-    // close(fd);
+    if(written < CFDataGetLength(exportedData))
+    {
+      perror("write(2) error");
+      return 1;
+    }
     
-    printf("written: %ld of %lu\n", written, CFDataGetLength(exportedData));
-    
+    // Close pipe, so OpenSSL sees an end
     close(opensslPipe[1]);
     
-    // char buff[4048];
-    // read(opensslPipe[0], buff, written);
-    // fread(buff, 1, written, fp);
-    // printf("{{{ %s }}}", buff);
-    
-    
-    
-    // return 0;
-    
-    X509_SIG *p8;
-    p8 = PEM_read_PKCS8(fp, NULL, NULL, NULL);
-		
-    
-    // EVP_PKEY *key;
-    // key = PEM_read_PrivateKey(fp, NULL, NULL, "1234");
-  
-    // DSA *key;
-    // key = PEM_read_DSAPrivateKey(fp, NULL, NULL, "1234");
-  
-    //    PKCS8_PRIV_KEY_INFO *p8inf;
-    //    p8inf = PKCS8_decrypt(p8, "12345", 6);
-    // X509_SIG_free(p8);
-    
+    // Init OpenSSL
     ERR_load_crypto_strings();
     OpenSSL_add_all_algorithms();
-	
     
-	PKCS8_PRIV_KEY_INFO *p8inf;
-	p8inf = PKCS8_decrypt(p8, "12345", 5);
-	X509_SIG_free(p8);
-	
-  
-    printf("key: %lu\n", p8inf);
-  
-  
-    ERR_print_errors_fp(stderr);
-  
+    // Read key through this pipe
+    X509_SIG *p8;
+    p8 = PEM_read_PKCS8(fp, NULL, NULL, NULL);
+    
+    // Try to decrypt
+    PKCS8_PRIV_KEY_INFO *p8inf;
+    p8inf = PKCS8_decrypt(p8, "12345", 5);
+    
+    X509_SIG_free(p8);
+    
+    
+    EVP_PKEY *pkey;
+    
+    
+    if(!p8inf)
+    {
+      fprintf(stderr, "Error decrypting key\n");
+      ERR_print_errors_fp(stderr);
+      return 1;
+    }
+    
+    if(!(pkey = EVP_PKCS82PKEY(p8inf)))
+    {
+      fprintf(stderr, "Error converting key\n");
+      ERR_print_errors_fp(stderr);
+      return 1;
+    }
+    
+    if(p8inf->broken)
+    {
+      fprintf(stderr, "Warning: broken key encoding: ");
+      
+      switch(p8inf->broken)
+      {
+      case PKCS8_NO_OCTET:
+        fprintf(stderr, "No Octet String in PrivateKey\n");
+        break;
+        
+      case PKCS8_EMBEDDED_PARAM:
+        fprintf(stderr, "DSA parameters included in PrivateKey\n");
+        break;
+        
+      case PKCS8_NS_DB:
+        fprintf(stderr, "DSA public key include in PrivateKey\n");
+        break;
+        
+      default:
+        fprintf(stderr, "Unknown broken type\n");
+        break;
+      }
+    }
+    
+    PKCS8_PRIV_KEY_INFO_free(p8inf);
+    
+    PEM_write_PrivateKey(stdout, pkey, NULL, NULL, 0, NULL, NULL);
   }
   else
   {
