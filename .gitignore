@@ -1,2 +1,3 @@
 *.o
 keychain_access
+.DS_Store

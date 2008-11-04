@@ -57,8 +57,8 @@ int kca_print_private_key(SecKeychainItemRef p_keyItem,
   //     cssmKeyPtr->KeyHeader.LogicalKeySizeInBits);
   
   
-  CFDataRef exportKey;
-  exportKey = CFDataCreate(NULL, "1234", 4);
+  // CFDataRef exportKey;
+  // exportKey = CFDataCreate(NULL, "1234", 4);
   
   
   SecKeyImportExportParameters keyParams;
@@ -198,7 +198,7 @@ int main(int argc, char const *argv[])
 {
   if(argc != 2)
   {
-    fprintf(stderr, "Usage: keychain_access [-vh] item_name\n");
+    fprintf(stderr, "Usage: keychain_access [-v] item_name\n");
     return 1;
     
     // TODO:
