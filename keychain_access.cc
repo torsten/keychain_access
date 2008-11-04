@@ -34,11 +34,72 @@
 #include <Security/Security.h>
 
 
-void ka_print_attribute_list(const SecKeychainAttributeList *p_list)
+/**
+ *  @param p_password NULL here means no password.
+ */
+int kca_print_private_key(SecKeychainItemRef p_keyItem,
+    const char *p_password)
 {
-  printf("count: %u\n", p_list->count);
+  // SecKeychainItemFreeContent(); each time after a CopyContent
+  
+  // const CSSM_KEY *cssmKeyPtr;
+  // 
+  // status = SecKeyGetCSSMKey(
+  //    (SecKeyRef)itemRef, &cssmKeyPtr);
+  // 
+  // printf("status: %d size: %lu data: %s size: %i\n",
+  //     status, cssmKeyPtr->KeyData.Length, attrz[0].data,
+  //     cssmKeyPtr->KeyHeader.LogicalKeySizeInBits);
   
   
+  SecKeyImportExportParameters keyParams;
+  keyParams.version = SEC_KEY_IMPORT_EXPORT_PARAMS_VERSION;
+  keyParams.flags = 0; // kSecKeySecurePassphrase
+  keyParams.passphrase = CFSTR("1234");
+  keyParams.alertTitle = 0; // CFSTR("TITLE");
+  keyParams.alertPrompt = 0; // CFSTR("PROMPT");
+  
+  
+  // uint32_t                version;
+  // SecKeyImportExportFlags flags;
+  // CFTypeRef               passphrase;
+  // CFStringRef             alertTitle;
+  // CFStringRef             alertPrompt;
+  
+  
+  
+  CFDataRef exportedData;
+  OSStatus status;
+  
+  status = SecKeychainItemExport(
+      p_keyItem,
+      kSecFormatWrappedPKCS8,
+      kSecItemPemArmour,
+      &keyParams,
+      &exportedData);
+  
+  if(status == noErr)
+  {
+    write(fileno(stdout),
+        CFDataGetBytePtr(exportedData), CFDataGetLength(exportedData));
+  
+    // Now decrypt it with openssl, see crypto(3)
+  
+  }
+  else
+  {
+    fprintf(stderr, "Export error: %ld\n", status);
+    return 1;
+  }
+  
+  return 0;
+}
+
+
+int kca_print_public_key(SecKeychainItemRef p_keyItem)
+{
+  printf("Not yet implemented.\n");
+  return 1;
 }
 
 
@@ -61,12 +122,18 @@ int main(int argc, char const *argv[])
     // -p pwname for searching a password
   }
   
+  if(strcmp(argv[1], "-v") == 0)
+  {
+    printf("This is keychain_access version v0 (f4ad).\n");
+    return 0;
+  }
+  
   
   const char *itemName = argv[1];
   
   OSStatus status = 0;
-  SecKeychainItemRef itemRef = 0;
   SecKeychainSearchRef searchRef = 0;
+  SecKeychainItemRef itemRef = 0;
   
   
   SecKeychainAttribute labelAttr;
@@ -85,6 +152,10 @@ int main(int argc, char const *argv[])
       &searchList,
       &searchRef);
   
+  
+  char *errorMessage = "Search for item named %s failed: %d\n";
+  
+  
   if(status != noErr)
   {
 searchFailed:
@@ -94,55 +165,71 @@ searchFailed:
     if(itemRef)
       CFRelease(itemRef);
     
-    // Maybe show the full name of the error
-    fprintf(stderr, "Search for item named %s failed: %d\n",
-        itemName, (int)status);
+    if(status == errSecItemNotFound)
+      fprintf(stderr, "Could not find a item named %s.\n", itemName);
+    
+    else
+      fprintf(stderr, errorMessage,
+          itemName, (int)status);
     
     return 1;
   }
   
   
+  status = SecKeychainSearchCopyNext(
+      searchRef, &itemRef);
+  
+  if(status != noErr)
+    goto searchFailed;
+  
+  // TODO: cleanup search
+  
+  
   SecItemClass itemClass;
-  UInt32 length;
-  void *outData;
-  SecKeychainAttributeList *attrListPtr;
   
   
-  for(;;)
+  // UInt32 length;
+  // void *outData;
+  
+  // SecKeychainAttributeList *attrListPtr;
+  
+  
+  // SecKeychainAttribute attrz[2];
+  // attrz[0].tag = kSecLabelItemAttr;
+  
+  // SecKeychainAttributeList attrList;
+  // attrList.count = 0;
+  // attrList.attr = attrz;
+  
+  status = SecKeychainItemCopyContent(
+      itemRef, &itemClass, NULL, NULL, NULL);
+  
+  
+  // status = SecKeychainItemCopyAttributesAndData(
+  //     itemRef,
+  //     NULL,
+  //     &itemClass,
+  //     &attrListPtr,
+  //     &length,
+  //     NULL);
+  
+  
+  if(status != noErr)
   {
-    status = SecKeychainSearchCopyNext(
-        searchRef, &itemRef);
+    errorMessage = "Copy content failed for %s: %d\n";
+    goto searchFailed;
+  }
+  
+  
+  if(itemClass == CSSM_DL_DB_RECORD_PRIVATE_KEY)
+    return kca_print_private_key(itemRef, NULL);
+  
+  else if(itemClass == CSSM_DL_DB_RECORD_PUBLIC_KEY)
+    return kca_print_public_key(itemRef);
     
-    if(status != noErr)
-      break;
-    
-    
-    SecKeychainAttribute attrz[2];
-    attrz[0].tag = kSecLabelItemAttr;
-    attrz[1].tag = kSecKeyKeySizeInBits;
-    
-    SecKeychainAttributeList attrList;
-    attrList.count = 1;
-    attrList.attr = attrz;
-    
-    status = SecKeychainItemCopyContent(
-        itemRef, &itemClass, &attrList, &length, &outData);
-    
-    
-    // status = SecKeychainItemCopyAttributesAndData(
-    //     itemRef,
-    //     NULL,
-    //     &itemClass,
-    //     &attrListPtr,
-    //     &length,
-    //     NULL);
-    
-    
-    
-    if(status != noErr)
-      break;
-    
-    printf("item class: ");
+  else
+  {
+    printf("Handling ");
     
     switch(itemClass)
     {
@@ -158,119 +245,28 @@ searchFailed:
     case kSecCertificateItemClass:
       printf("kSecCertificateItemClass");
       break;
-    case CSSM_DL_DB_RECORD_PUBLIC_KEY:
-      printf("CSSM_DL_DB_RECORD_PUBLIC_KEY");
-      break;
-    case CSSM_DL_DB_RECORD_PRIVATE_KEY:
-      printf("CSSM_DL_DB_RECORD_PRIVATE_KEY");
-      break;
     case CSSM_DL_DB_RECORD_SYMMETRIC_KEY:
       printf("CSSM_DL_DB_RECORD_SYMMETRIC_KEY");
       break;
     case CSSM_DL_DB_RECORD_ALL_KEYS:
       printf("CSSM_DL_DB_RECORD_ALL_KEYS");
       break;
+    /*
+    case CSSM_DL_DB_RECORD_PUBLIC_KEY:
+      printf("CSSM_DL_DB_RECORD_PUBLIC_KEY");
+      break;
+    case CSSM_DL_DB_RECORD_PRIVATE_KEY:
+      printf("CSSM_DL_DB_RECORD_PRIVATE_KEY");
+      break;
+    */
     default:
-      printf("Unknown item class: %lu", itemClass);
+      printf("unknown item class (%lu)", itemClass);
     }
     
-    printf("\n");
+    printf(" is not yet implemented.\n");
     
-    // ka_print_attribute_list(attrListPtr);
-    
-    printf("<%s> (%u)\n", (char*)outData, length);
-    // SecKeychainItemFreeContent(); each time after a CopyContent
-    
-    const CSSM_KEY *cssmKeyPtr;
-    
-    status = SecKeyGetCSSMKey(
-       (SecKeyRef)itemRef, &cssmKeyPtr);
-    
-    
-    
-    printf("status: %d size: %lu data: %s size: %i\n",
-        status, cssmKeyPtr->KeyData.Length, attrz[0].data,
-        cssmKeyPtr->KeyHeader.LogicalKeySizeInBits);
-    
-    
-    SecKeyImportExportParameters keyParams;
-    keyParams.version = SEC_KEY_IMPORT_EXPORT_PARAMS_VERSION;
-    keyParams.flags = 0; // kSecKeySecurePassphrase
-    keyParams.passphrase = CFSTR("1234");
-    keyParams.alertTitle = CFSTR("TITLE");
-    keyParams.alertPrompt = CFSTR("PROMPT");
-    
-    
-    // uint32_t                version;
-    // SecKeyImportExportFlags flags;
-    // CFTypeRef               passphrase;
-    // CFStringRef             alertTitle;
-    // CFStringRef             alertPrompt;
-    
-    
-    
-    CFDataRef exportedData;
-    
-    status = SecKeychainItemExport(
-        itemRef,
-        kSecFormatWrappedPKCS8,
-        kSecItemPemArmour,
-        &keyParams,
-        &exportedData);
-      
-    printf("status: %d\n", status);
-    
-    if(status == noErr)
-    {
-      write(fileno(stdout),
-          CFDataGetBytePtr(exportedData), CFDataGetLength(exportedData));
-
-      // Now decrypt it with openssl, see crypto(3)
-      
-    }
-    
-    
+    return 1;
   }
-  
-  if(status != errSecItemNotFound)
-    goto searchFailed;
-  
-  
-  // 
-  // SecKeychainSearchCopyNext(
-  //    SecKeychainSearchRef searchRef,
-  //    SecKeychainItemRef *itemRef
-  // );
-  // 
-  // 
-  // CFRelease();
-  // 
-  // 
-  // status1 = SecKeychainFindGenericPassword(
-  //     NULL,           // default keychain
-  //     strlen(argv[1]),             // length of service name
-  //     argv[1],   // service name
-  //     0,             // length of account name
-  //     "torsten.becker@gmail.com",   // account name
-  //     &passwordLength, // length of password
-  //     &passwordData,   // pointer to password data
-  //     &itemRef         // the item reference
-  // );
-  // 
-  // 
-  // //If call was successful, authenticate user and continue
-  // if(status1 == noErr)       
-  // {
-  //   //Free the data allocated by SecKeychainFindGenericPassword:
-  //   SecKeychainItemFreeContent(
-  //       NULL,           // No attribute data to release
-  //       &passwordData    // Release data buffer allocated by
-  //   );
-  //   
-  //   printf("Hmm: %s\n", passwordData);
-  // }
-  // else
-  //   printf("Error: %d\n", status1);
   
   
   return 0;
