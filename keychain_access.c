@@ -23,14 +23,21 @@
 
 // http://ianhenderson.org/repos/delimport/Keychain/
 
+#include <fcntl.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <string.h>
+#include <sys/types.h>
 #include <sys/uio.h>
 #include <unistd.h>
 
 #include <CoreFoundation/CoreFoundation.h>
 #include <Security/Security.h>
+
+#include <openssl/pem.h>
+#include <openssl/err.h>
+#include <openssl/evp.h>
+#include <openssl/pkcs12.h>
 
 
 /**
@@ -51,10 +58,14 @@ int kca_print_private_key(SecKeychainItemRef p_keyItem,
   //     cssmKeyPtr->KeyHeader.LogicalKeySizeInBits);
   
   
+  CFDataRef exportKey;
+  exportKey = CFDataCreate(NULL, "1234", 4);
+  
+  
   SecKeyImportExportParameters keyParams;
   keyParams.version = SEC_KEY_IMPORT_EXPORT_PARAMS_VERSION;
   keyParams.flags = 0; // kSecKeySecurePassphrase
-  keyParams.passphrase = CFSTR("1234");
+  keyParams.passphrase = CFSTR("12345"); //exportKey;
   keyParams.alertTitle = 0; // CFSTR("TITLE");
   keyParams.alertPrompt = 0; // CFSTR("PROMPT");
   
@@ -72,6 +83,8 @@ int kca_print_private_key(SecKeychainItemRef p_keyItem,
   
   status = SecKeychainItemExport(
       p_keyItem,
+      // kSecFormatPKCS12,
+      // 0,
       kSecFormatWrappedPKCS8,
       kSecItemPemArmour,
       &keyParams,
@@ -79,10 +92,69 @@ int kca_print_private_key(SecKeychainItemRef p_keyItem,
   
   if(status == noErr)
   {
-    write(fileno(stdout),
-        CFDataGetBytePtr(exportedData), CFDataGetLength(exportedData));
+    int opensslPipe[2];
+    if(pipe(opensslPipe) != 0)
+    {
+      perror("pipe(2) error");
+      return 1;
+    }
   
-    // Now decrypt it with openssl, see crypto(3)
+    FILE *fp;
+    fp = fdopen(opensslPipe[0], "r");
+    
+    if(fp == NULL)
+    {
+      perror("fdopen(3) error");
+      return 1;
+    }
+    
+    // int fd = open("mhh.pem", O_WRONLY);
+    ssize_t written;
+    written = write(opensslPipe[1],
+        CFDataGetBytePtr(exportedData), CFDataGetLength(exportedData));
+    
+    // close(fd);
+    
+    printf("written: %ld of %lu\n", written, CFDataGetLength(exportedData));
+    
+    close(opensslPipe[1]);
+    
+    // char buff[4048];
+    // read(opensslPipe[0], buff, written);
+    // fread(buff, 1, written, fp);
+    // printf("{{{ %s }}}", buff);
+    
+    
+    
+    // return 0;
+    
+    X509_SIG *p8;
+    p8 = PEM_read_PKCS8(fp, NULL, NULL, NULL);
+		
+    
+    // EVP_PKEY *key;
+    // key = PEM_read_PrivateKey(fp, NULL, NULL, "1234");
+  
+    // DSA *key;
+    // key = PEM_read_DSAPrivateKey(fp, NULL, NULL, "1234");
+  
+    //    PKCS8_PRIV_KEY_INFO *p8inf;
+    //    p8inf = PKCS8_decrypt(p8, "12345", 6);
+    // X509_SIG_free(p8);
+    
+    ERR_load_crypto_strings();
+    OpenSSL_add_all_algorithms();
+	
+    
+	PKCS8_PRIV_KEY_INFO *p8inf;
+	p8inf = PKCS8_decrypt(p8, "12345", 5);
+	X509_SIG_free(p8);
+	
+  
+    printf("key: %lu\n", p8inf);
+  
+  
+    ERR_print_errors_fp(stderr);
   
   }
   else
@@ -97,7 +169,7 @@ int kca_print_private_key(SecKeychainItemRef p_keyItem,
 
 int kca_print_public_key(SecKeychainItemRef p_keyItem)
 {
-  printf("Not yet implemented.\n");
+  printf("Public keys are not yet implemented.\n");
   return 1;
 }
 
@@ -139,7 +211,7 @@ int main(int argc, char const *argv[])
   OSStatus status = 0;
   SecKeychainSearchRef searchRef = 0;
   SecKeychainItemRef itemRef = 0;
-  
+  SecItemClass itemClass;
   
   SecKeychainAttribute labelAttr;
   labelAttr.tag = kSecLabelItemAttr;
@@ -190,34 +262,9 @@ searchFailed:
   // TODO: cleanup search
   
   
-  SecItemClass itemClass;
-  
-  
-  // UInt32 length;
-  // void *outData;
-  
-  // SecKeychainAttributeList *attrListPtr;
-  
-  
-  // SecKeychainAttribute attrz[2];
-  // attrz[0].tag = kSecLabelItemAttr;
-  
-  // SecKeychainAttributeList attrList;
-  // attrList.count = 0;
-  // attrList.attr = attrz;
   
   status = SecKeychainItemCopyContent(
       itemRef, &itemClass, NULL, NULL, NULL);
-  
-  
-  // status = SecKeychainItemCopyAttributesAndData(
-  //     itemRef,
-  //     NULL,
-  //     &itemClass,
-  //     &attrListPtr,
-  //     &length,
-  //     NULL);
-  
   
   if(status != noErr)
   {

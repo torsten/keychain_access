@@ -14,7 +14,7 @@ endif
 CFLAGS    = -pipe -std=c99 -Wall -pedantic $(DEBUG) $(DEFINES)
 SRC_FILES = $(wildcard *.c)
 O_FILES   = $(SRC_FILES:%.c=%.o)
-LIBS      = -framework Security -framework CoreFoundation
+LIBS      = -framework Security -framework CoreFoundation -lcrypto
 
 
 
