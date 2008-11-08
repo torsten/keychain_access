@@ -1,5 +1,5 @@
 TARGET    = keychain_access
-VERSION   = v1
+VERSION   = v2
 REV       = $(shell git rev-parse --short=4 HEAD || cat git-rev)
 
 DEBUG     = -g

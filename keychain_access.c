@@ -58,7 +58,7 @@ int kca_print_private_key(SecKeychainItemRef p_keyItem,
   
   CFDataRef exportKey;
   
-  if(!p_password)
+  if(p_password)
     exportKey = CFDataCreate(
         NULL, (unsigned char*)p_password, strlen(p_password));
   
@@ -294,7 +294,7 @@ int kca_print_key(const char *p_keyName, const char *p_keyPassword)
 
   if(status != noErr)
   {
-  searchFailed:
+searchFailed:
     if(searchRef)
       CFRelease(searchRef);
 
