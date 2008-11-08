@@ -1,9 +1,9 @@
 # keychain_access
 
-The idea behind keychain_access is to provide Keychain features in the command line.  Apples security(1) command does already some work for this. Unfortunately there is no convenient way to to access public/private key pairs stored in the Keychain via security(1).
+The idea behind keychain_access is to provide Keychain features in the command line.  Apple's [security(1)](http://developer.apple.com/documentation/Darwin/Reference/ManPages/man1/security.1.html) command does already some of this work. Unfortunately there is no convenient way to to access public/private key pairs stored in the Keychain via security(1).
 
-This is why I wrote keychain_access.  I wanted to use private keys stored in my keychain in command line scripts.  This is helpful for signing builds for
-Sparkle without having to type my password all the time.  But at the same time you do not have to worry that your private keys are stored in plaintext on your harddrive.
+This is why I wrote keychain_access.  I wanted to use private keys stored in my keychain in command-line scripts.  This is helpful for signing files for
+[Sparkles](http://sparkle.andymatuschak.org/) appcast without having to type my password all the time, while at the same time not having to worry that my private key is stored in plaintext on my harddrive.
 
 
 ## Usage
@@ -20,7 +20,7 @@ Options:
                   Has to be a public or private key.
 </pre>
 
-If you want to pass a key from the Keychain to an openssl command without the key touching the harddrive, use a named pipe.  This is how I use keychain_access to sign [Sparkle](http://sparkle.andymatuschak.org/) updates:
+If you want to pass a key from the Keychain to an openssl command without the key touching the harddrive, use a named pipe.  This is how I use keychain_access to sign Sparkle updates:
 
 <pre>
 PIPE=$OUTPUT_DIR/key.pipe
@@ -40,7 +40,7 @@ Type <code>make</code> and then copy the executable named "keychain_access" to w
 
 ## License
 
-MIT, see keychain_access.c.
+MIT, see [keychain_access.c](keychain_access.c).
 
 
 ## Author
