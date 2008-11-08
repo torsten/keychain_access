@@ -8,7 +8,29 @@ Sparkle without having to type my password all the time.  But at the same time y
 
 ## Usage
 
-WIP
+<pre>
+$ keychain_access -h
+Usage: keychain_access [-vh] [-p &lt;password>] &lt;key_name>
+Options:
+  -p &lt;password>   Encrypt exported private keys with &lt;password>.
+                  The default is to export them without a password.
+  -h              Show this information.
+  -v              Print current version number.
+  &lt;key_name>      The name of the keychain item you want to access.
+                  Has to be a public or private key.
+</pre>
+
+If you want to pass a key from the Keychain to an openssl command without the key touching the harddrive, use a named pipe.  This is how I use keychain_access to sign [Sparkle](http://sparkle.andymatuschak.org/) updates:
+
+<pre>
+PIPE=$OUTPUT_DIR/key.pipe
+mkfifo -m 0600 $PIPE
+keychain_access a.unique.name.for.the.private.key > $PIPE &amp;
+
+SIG=`openssl dgst -sha1 -binary &lt; "$OUTPUT_DIR/$VOL.dmg" | openssl dgst -dss1 -sign "$PIPE" | openssl enc -base64`
+
+rm $PIPE
+</pre>
 
 
 ## Installing
@@ -18,7 +40,7 @@ Type <code>make</code> and then copy the executable named "keychain_access" to w
 
 ## License
 
-MIT.
+MIT, see keychain_access.c.
 
 
 ## Author
