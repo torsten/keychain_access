@@ -216,9 +216,18 @@ int kca_print_public_key(SecKeychainItemRef p_keyItem)
 }
 
 
-void kca_print_help(FILE *p_fp)
+void kca_print_help(FILE *p_fp, const char *p_arg0)
 {
-  fprintf(p_fp, "Usage: keychain_access [-vh] item_name\n");
+  fprintf(p_fp,
+  "Usage: %s [-vh] [-p <password>] <key_name>\n"
+  "Options:\n"
+  "  -p <password>   Encrypt exported private keys with <password>.\n"
+  "                  The default is to export them without a password.\n"
+  "  -h              Show this information.\n"
+  "  -v              Print current version number.\n"
+  "  <key_name>      The name of the keychain item you want to access.\n"
+  "                  Has to be a public or private key.\n",
+  p_arg0);
 }
 
 void kca_print_version()
@@ -230,47 +239,70 @@ void kca_print_version()
 #define KCA_REV "n/a"
 #endif
   
-  printf("This is keychain_access "KCA_VERSION" ("KCA_REV").\n");
+  printf("keychain_access "KCA_VERSION" ("KCA_REV")\n");
   
 #undef KCA_VERSION
 #undef KCA_REV
 }
 
 
-int main(int argc, char const *argv[])
+int main(int p_argc, char * const p_argv[])
 {
-  if(argc != 2)
+  int option;
+  const char *keyPassword;
+  
+  // TODO:
+  // -t for "type"
+  // -a to limit to a certain attribute
+  // -o to specify output format
+  // --pem
+  // -k keyname
+  // -p pwname for searching a password
+  
+  const char *arg0 = "keychain_access";
+  if(p_argc >= 1)
+    arg0 = p_argv[0];
+  
+  while((option = getopt(p_argc, p_argv, "vhp:")) != -1)
   {
-    kca_print_help(stderr);
-    return 1;
+    switch(option)
+    {
+    case 'h':
+      kca_print_help(stdout, arg0);
+      return 0;
     
-    // TODO:
-    // via getopt?:
-    // -t for "type"
-    // -a to limit to a certain attribute
-    // -o to specify output format
-    // -v version
-    // -h help
-    // --pem
-    // -P for encrypting the key with passphrase
-    // -k keyname
-    // -p pwname for searching a password
+    case 'v':
+      kca_print_version();
+      return 0;
+    
+    case 'p':
+      keyPassword = optarg;
+      break;
+      
+    case '?':
+    default:
+      kca_print_help(stderr, arg0);
+      return 1;
+    }
   }
   
-  if(strcmp(argv[1], "-h") == 0)
+  int argcAfter = p_argc - optind;
+  char * const *argvAfter = p_argv + optind;
+  
+  if(argcAfter > 1)
   {
-    kca_print_help(stdout);
-    return 0;
+    fprintf(stderr, "%s: Too many key names given.\n", arg0);
+    kca_print_help(stderr, arg0);
+    return 1;
   }
-  
-  if(strcmp(argv[1], "-v") == 0)
+  else if(argcAfter < 1)
   {
-    kca_print_version();
-    return 0;
+    fprintf(stderr, "%s: Missing key name.\n", arg0);
+    kca_print_help(stderr, arg0);
+    return 1;
   }
   
-  
-  const char *itemName = argv[1];
+  const char *itemName = argvAfter[0];
   
   OSStatus status = 0;
   SecKeychainSearchRef searchRef = 0;
