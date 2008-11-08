@@ -3,11 +3,12 @@ VERSION   = v1
 REV       = $(shell git rev-parse --short=4 HEAD || cat git-rev)
 
 DEBUG     = -g
-DEFINES   = -DKCA_VERSION='"'$(VERSION)'"'
+# DEBUG   = -O2
+DEFINES   = -DKCA_VERSION=\"$(VERSION)\"
 
 # If we somehow found a revision number
 ifneq ($(REV),)
-DEFINES  += -DKCA_REV='"'$(REV)'"'
+DEFINES  += -DKCA_REV=\"$(REV)\"
 endif
 
 
@@ -15,7 +16,6 @@ CFLAGS    = -pipe -std=c99 -Wall -pedantic $(DEBUG) $(DEFINES)
 SRC_FILES = $(wildcard *.c)
 O_FILES   = $(SRC_FILES:%.c=%.o)
 LIBS      = -framework Security -framework CoreFoundation -lcrypto
-
 
 
 .PHONY: all clean run
@@ -32,4 +32,4 @@ run: $(TARGET)
 	./$(TARGET)
 
 install:
-	@echo No yet implemented.
+	@echo No yet implemented, just copy the file yourself.

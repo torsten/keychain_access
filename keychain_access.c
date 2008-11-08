@@ -1,5 +1,6 @@
 /*
- * Copyright (C) 2008 Torsten Becker. All rights reserved.
+ * Copyright (C) 2008 Torsten Becker <torsten.becker@gmail.com>.
+ * All rights reserved.
  * 
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to
@@ -20,8 +21,6 @@
  *
  * keychain_access.cc, created on 04-Nov-2008.
  */
-
-// http://ianhenderson.org/repos/delimport/Keychain/
 
 #include <fcntl.h>
 #include <stdarg.h>
@@ -189,8 +188,52 @@ int kca_print_private_key(SecKeychainItemRef p_keyItem,
 
 int kca_print_public_key(SecKeychainItemRef p_keyItem)
 {
-  printf("Public keys are not yet implemented.\n");
-  return 1;
+  CFDataRef exportedData;
+  OSStatus status;
+  
+  SecKeyImportExportParameters keyParams;
+  keyParams.version = SEC_KEY_IMPORT_EXPORT_PARAMS_VERSION;
+  keyParams.flags = 0;
+  keyParams.passphrase = 0; //exportKey;
+  keyParams.alertTitle = 0; // CFSTR("TITLE");
+  keyParams.alertPrompt = 0; // CFSTR("PROMPT");
+  
+  status = SecKeychainItemExport(
+      p_keyItem,
+      0,
+      kSecItemPemArmour,
+      &keyParams,
+      &exportedData);
+  
+  printf("status: %ld\n", status);
+  
+  // TODO: change format to be openssl compatible
+  write(fileno(stdout),
+      CFDataGetBytePtr(exportedData), CFDataGetLength(exportedData));
+  
+  
+  return 0;
+}
+
+
+void kca_print_help(FILE *p_fp)
+{
+  fprintf(p_fp, "Usage: keychain_access [-vh] item_name\n");
+}
+
+void kca_print_version()
+{
+#ifndef KCA_VERSION
+#define KCA_VERSION "v0"
+#endif
+#ifndef KCA_REV
+#define KCA_REV "n/a"
+#endif
+  
+  printf("This is keychain_access "KCA_VERSION" ("KCA_REV").\n");
+  
+#undef KCA_VERSION
+#undef KCA_REV
 }
 
 
@@ -198,10 +241,11 @@ int main(int argc, char const *argv[])
 {
   if(argc != 2)
   {
-    fprintf(stderr, "Usage: keychain_access [-v] item_name\n");
+    kca_print_help(stderr);
     return 1;
     
     // TODO:
+    // via getopt?:
     // -t for "type"
     // -a to limit to a certain attribute
     // -o to specify output format
@@ -213,15 +257,15 @@ int main(int argc, char const *argv[])
     // -p pwname for searching a password
   }
   
+  if(strcmp(argv[1], "-h") == 0)
+  {
+    kca_print_help(stdout);
+    return 0;
+  }
+  
   if(strcmp(argv[1], "-v") == 0)
   {
-#ifndef KCA_VERSION
-#define KCA_VERSION "v0"
-#endif
-#ifndef KCA_REV
-#define KCA_REV "n/a"
-#endif
-    printf("This is keychain_access "KCA_VERSION" ("KCA_REV").\n");
+    kca_print_version();
     return 0;
   }
   
