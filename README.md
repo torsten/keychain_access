@@ -40,7 +40,7 @@ Type <code>make</code> and then copy the executable named "keychain_access" to w
 
 ## License
 
-MIT, see [keychain_access.c](keychain_access.c).
+MIT, see [keychain_access.c](http://github.com/torsten/keychain_access/tree/master/keychain_access.c).
 
 
 ## Author
