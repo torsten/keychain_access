@@ -415,7 +415,7 @@ void kca_print_version()
 int main(int p_argc, char **p_argv)
 {
   int option;
-  const char *keyPassword;
+  const char *keyPassword = NULL;
   
   // TODO:
   // -t for "type"
