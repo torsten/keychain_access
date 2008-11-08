@@ -19,7 +19,7 @@
  * IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  *
- * keychain_access.cc, created on 04-Nov-2008.
+ * keychain_access.c, created on 31-Oct-2008.
  */
 
 #include <fcntl.h>
@@ -56,24 +56,22 @@ int kca_print_private_key(SecKeychainItemRef p_keyItem,
   //     cssmKeyPtr->KeyHeader.LogicalKeySizeInBits);
   
   
-  // CFDataRef exportKey;
-  // exportKey = CFDataCreate(NULL, "1234", 4);
+  CFDataRef exportKey;
+  
+  if(!p_password)
+    exportKey = CFDataCreate(
+        NULL, (unsigned char*)p_password, strlen(p_password));
+  
+  else
+    exportKey = CFDataCreate(NULL, (unsigned char*)"12345", 5);
   
   
   SecKeyImportExportParameters keyParams;
   keyParams.version = SEC_KEY_IMPORT_EXPORT_PARAMS_VERSION;
   keyParams.flags = 0; // kSecKeySecurePassphrase
-  keyParams.passphrase = CFSTR("12345"); //exportKey;
-  keyParams.alertTitle = 0; // CFSTR("TITLE");
-  keyParams.alertPrompt = 0; // CFSTR("PROMPT");
-  
-  
-  // uint32_t                version;
-  // SecKeyImportExportFlags flags;
-  // CFTypeRef               passphrase;
-  // CFStringRef             alertTitle;
-  // CFStringRef             alertPrompt;
-  
+  keyParams.passphrase = exportKey;
+  keyParams.alertTitle = 0;
+  keyParams.alertPrompt = 0;
   
   
   CFDataRef exportedData;
@@ -88,6 +86,17 @@ int kca_print_private_key(SecKeychainItemRef p_keyItem,
   
   if(status == noErr)
   {
+    // If the user did set a password, just print the key
+    if(p_password)
+    {
+      write(fileno(stdout),
+          CFDataGetBytePtr(exportedData), CFDataGetLength(exportedData));
+      
+      return 0;
+    }
+    
+    // It no password was given, use openssl to create a key with no password...
+    
     int opensslPipe[2];
     if(pipe(opensslPipe) != 0)
     {
@@ -324,7 +333,7 @@ int kca_print_key(const char *p_keyName, const char *p_keyPassword)
 
 
   if(itemClass == CSSM_DL_DB_RECORD_PRIVATE_KEY)
-    return kca_print_private_key(itemRef, NULL);
+    return kca_print_private_key(itemRef, p_keyPassword);
 
   else if(itemClass == CSSM_DL_DB_RECORD_PUBLIC_KEY)
     return kca_print_public_key(itemRef);
@@ -400,9 +409,6 @@ void kca_print_version()
 #endif
   
   printf("keychain_access "KCA_VERSION" ("KCA_REV")\n");
-  
-#undef KCA_VERSION
-#undef KCA_REV
 }
 
 
