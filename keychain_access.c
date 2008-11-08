@@ -216,6 +216,126 @@ int kca_print_public_key(SecKeychainItemRef p_keyItem)
 }
 
 
+int kca_print_key(const char *keyName, const char *keyPassword)
+{
+  OSStatus status = 0;
+  SecKeychainSearchRef searchRef = 0;
+  SecKeychainItemRef itemRef = 0;
+  SecItemClass itemClass;
+
+  SecKeychainAttribute labelAttr;
+  labelAttr.tag = kSecLabelItemAttr;
+  labelAttr.length = strlen(keyName);
+  labelAttr.data = (void*)keyName;
+
+  SecKeychainAttributeList searchList;
+  searchList.count = 1;
+  searchList.attr = &labelAttr;
+
+
+  status = SecKeychainSearchCreateFromAttributes(
+      NULL, // Search all kechains
+      CSSM_DL_DB_RECORD_ANY,
+      &searchList,
+      &searchRef);
+
+
+  char *errorMessage = "Search for item named %s failed: %d\n";
+
+
+  if(status != noErr)
+  {
+  searchFailed:
+    if(searchRef)
+      CFRelease(searchRef);
+
+    if(itemRef)
+      CFRelease(itemRef);
+
+    if(status == errSecItemNotFound)
+      fprintf(stderr, "Could not find a item named %s.\n", keyName);
+
+    else
+      fprintf(stderr, errorMessage,
+          keyName, (int)status);
+
+    return 1;
+  }
+
+
+  status = SecKeychainSearchCopyNext(
+      searchRef, &itemRef);
+
+  if(status != noErr)
+    goto searchFailed;
+
+  // TODO: cleanup search
+
+
+
+  status = SecKeychainItemCopyContent(
+      itemRef, &itemClass, NULL, NULL, NULL);
+
+  if(status != noErr)
+  {
+    errorMessage = "Copy content failed for %s: %d\n";
+    goto searchFailed;
+  }
+
+
+  if(itemClass == CSSM_DL_DB_RECORD_PRIVATE_KEY)
+    return kca_print_private_key(itemRef, NULL);
+
+  else if(itemClass == CSSM_DL_DB_RECORD_PUBLIC_KEY)
+    return kca_print_public_key(itemRef);
+
+  else
+  {
+    printf("Handling ");
+
+    switch(itemClass)
+    {
+    case kSecInternetPasswordItemClass:
+      printf("kSecInternetPasswordItemClass");
+      break;
+    case kSecGenericPasswordItemClass:
+      printf("kSecGenericPasswordItemClass");
+      break;
+    case kSecAppleSharePasswordItemClass:
+      printf("kSecAppleSharePasswordItemClass");
+      break;
+    // Causes: "warning: overflow in constant expression"
+    // case kSecCertificateItemClass:
+    //   printf("kSecCertificateItemClass");
+    //   break;
+    case CSSM_DL_DB_RECORD_SYMMETRIC_KEY:
+      printf("CSSM_DL_DB_RECORD_SYMMETRIC_KEY");
+      break;
+    case CSSM_DL_DB_RECORD_ALL_KEYS:
+      printf("CSSM_DL_DB_RECORD_ALL_KEYS");
+      break;
+    /*
+    case CSSM_DL_DB_RECORD_PUBLIC_KEY:
+      printf("CSSM_DL_DB_RECORD_PUBLIC_KEY");
+      break;
+    case CSSM_DL_DB_RECORD_PRIVATE_KEY:
+      printf("CSSM_DL_DB_RECORD_PRIVATE_KEY");
+      break;
+    */
+    default:
+      printf("unknown item class (%lu)", itemClass);
+    }
+
+    printf(" is not yet implemented.\n");
+
+    return 1;
+  }
+
+
+  return 0;
+}
+
+
 void kca_print_help(FILE *p_fp, const char *p_arg0)
 {
   fprintf(p_fp,
@@ -246,7 +366,7 @@ void kca_print_version()
 }
 
 
-int main(int p_argc, char * const p_argv[])
+int main(int p_argc, char **p_argv)
 {
   int option;
   const char *keyPassword;
@@ -287,7 +407,7 @@ int main(int p_argc, char * const p_argv[])
   }
   
   int argcAfter = p_argc - optind;
-  char * const *argvAfter = p_argv + optind;
+  char *keyName = *(p_argv + optind);
   
   if(argcAfter > 1)
   {
@@ -302,121 +422,5 @@ int main(int p_argc, char * const p_argv[])
     return 1;
   }
   
-  const char *itemName = argvAfter[0];
-  
-  OSStatus status = 0;
-  SecKeychainSearchRef searchRef = 0;
-  SecKeychainItemRef itemRef = 0;
-  SecItemClass itemClass;
-  
-  SecKeychainAttribute labelAttr;
-  labelAttr.tag = kSecLabelItemAttr;
-  labelAttr.length = strlen(itemName);
-  labelAttr.data = (void*)itemName;
-  
-  SecKeychainAttributeList searchList;
-  searchList.count = 1;
-  searchList.attr = &labelAttr;
-  
-  
-  status = SecKeychainSearchCreateFromAttributes(
-      NULL, // Search all kechains
-      CSSM_DL_DB_RECORD_ANY,
-      &searchList,
-      &searchRef);
-  
-  
-  char *errorMessage = "Search for item named %s failed: %d\n";
-  
-  
-  if(status != noErr)
-  {
-searchFailed:
-    if(searchRef)
-      CFRelease(searchRef);
-    
-    if(itemRef)
-      CFRelease(itemRef);
-    
-    if(status == errSecItemNotFound)
-      fprintf(stderr, "Could not find a item named %s.\n", itemName);
-    
-    else
-      fprintf(stderr, errorMessage,
-          itemName, (int)status);
-    
-    return 1;
-  }
-  
-  
-  status = SecKeychainSearchCopyNext(
-      searchRef, &itemRef);
-  
-  if(status != noErr)
-    goto searchFailed;
-  
-  // TODO: cleanup search
-  
-  
-  
-  status = SecKeychainItemCopyContent(
-      itemRef, &itemClass, NULL, NULL, NULL);
-  
-  if(status != noErr)
-  {
-    errorMessage = "Copy content failed for %s: %d\n";
-    goto searchFailed;
-  }
-  
-  
-  if(itemClass == CSSM_DL_DB_RECORD_PRIVATE_KEY)
-    return kca_print_private_key(itemRef, NULL);
-  
-  else if(itemClass == CSSM_DL_DB_RECORD_PUBLIC_KEY)
-    return kca_print_public_key(itemRef);
-    
-  else
-  {
-    printf("Handling ");
-    
-    switch(itemClass)
-    {
-    case kSecInternetPasswordItemClass:
-      printf("kSecInternetPasswordItemClass");
-      break;
-    case kSecGenericPasswordItemClass:
-      printf("kSecGenericPasswordItemClass");
-      break;
-    case kSecAppleSharePasswordItemClass:
-      printf("kSecAppleSharePasswordItemClass");
-      break;
-    // Causes: "warning: overflow in constant expression"
-    // case kSecCertificateItemClass:
-    //   printf("kSecCertificateItemClass");
-    //   break;
-    case CSSM_DL_DB_RECORD_SYMMETRIC_KEY:
-      printf("CSSM_DL_DB_RECORD_SYMMETRIC_KEY");
-      break;
-    case CSSM_DL_DB_RECORD_ALL_KEYS:
-      printf("CSSM_DL_DB_RECORD_ALL_KEYS");
-      break;
-    /*
-    case CSSM_DL_DB_RECORD_PUBLIC_KEY:
-      printf("CSSM_DL_DB_RECORD_PUBLIC_KEY");
-      break;
-    case CSSM_DL_DB_RECORD_PRIVATE_KEY:
-      printf("CSSM_DL_DB_RECORD_PRIVATE_KEY");
-      break;
-    */
-    default:
-      printf("unknown item class (%lu)", itemClass);
-    }
-    
-    printf(" is not yet implemented.\n");
-    
-    return 1;
-  }
-  
-  
-  return 0;
+  return kca_print_key(keyName, keyPassword);
 }
