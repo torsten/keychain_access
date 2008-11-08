@@ -188,15 +188,15 @@ int kca_print_private_key(SecKeychainItemRef p_keyItem,
 
 int kca_print_public_key(SecKeychainItemRef p_keyItem)
 {
-  CFDataRef exportedData;
+  CFDataRef exportedData = 0;
   OSStatus status;
   
   SecKeyImportExportParameters keyParams;
   keyParams.version = SEC_KEY_IMPORT_EXPORT_PARAMS_VERSION;
   keyParams.flags = 0;
-  keyParams.passphrase = 0; //exportKey;
-  keyParams.alertTitle = 0; // CFSTR("TITLE");
-  keyParams.alertPrompt = 0; // CFSTR("PROMPT");
+  keyParams.passphrase = 0;
+  keyParams.alertTitle = 0;
+  keyParams.alertPrompt = 0;
   
   status = SecKeychainItemExport(
       p_keyItem,
@@ -205,18 +205,58 @@ int kca_print_public_key(SecKeychainItemRef p_keyItem)
       &keyParams,
       &exportedData);
   
-  printf("status: %ld\n", status);
+  if(status != noErr || exportedData == 0)
+  {
+    fprintf(stderr,
+        "keychain_access: Exporting public key failed: %ld\n", status);
+    return 1;
+  }
   
-  // TODO: change format to be openssl compatible
+  char *pemBytes = (char*)CFDataGetBytePtr(exportedData);
+  
+  // Search for the first newline to know where the key data starts
+  char *firstNewLine = index(pemBytes, '\n');
+  
+  if(firstNewLine == NULL)
+  {
+    // This should not happen in practice, but just in case...
+reformat_panic:
+    fprintf(stderr, "keychain_access: Panic while reformating pubkey.\n");
+    return 1;
+  }
+  
+  int beginDiff = firstNewLine - pemBytes;
+  if(beginDiff < 0)
+    goto reformat_panic;
+  
+  
+  // Search for the end marker to know where the key data ends
+  char *endMarker = strnstr(
+      pemBytes, "\n-----END ", CFDataGetLength(exportedData));
+  
+  if(endMarker == NULL)
+    goto reformat_panic;
+  
+  int endDiff = endMarker - pemBytes;
+  if(endDiff < 0)
+    goto reformat_panic;
+  
+  
+  // Just print what is between the previous markers with 2 new markers around
+  // them, this new markers are acutally compatible with openssl now.
+  printf("-----BEGIN PUBLIC KEY-----");
+  fflush(stdout);
+  
   write(fileno(stdout),
-      CFDataGetBytePtr(exportedData), CFDataGetLength(exportedData));
+      CFDataGetBytePtr(exportedData) + beginDiff, endDiff - beginDiff);
   
+  puts("\n-----END PUBLIC KEY-----");
   
   return 0;
 }
 
 
-int kca_print_key(const char *keyName, const char *keyPassword)
+int kca_print_key(const char *p_keyName, const char *p_keyPassword)
 {
   OSStatus status = 0;
   SecKeychainSearchRef searchRef = 0;
@@ -225,8 +265,8 @@ int kca_print_key(const char *keyName, const char *keyPassword)
 
   SecKeychainAttribute labelAttr;
   labelAttr.tag = kSecLabelItemAttr;
-  labelAttr.length = strlen(keyName);
-  labelAttr.data = (void*)keyName;
+  labelAttr.length = strlen(p_keyName);
+  labelAttr.data = (void*)p_keyName;
 
   SecKeychainAttributeList searchList;
   searchList.count = 1;
@@ -253,11 +293,11 @@ int kca_print_key(const char *keyName, const char *keyPassword)
       CFRelease(itemRef);
 
     if(status == errSecItemNotFound)
-      fprintf(stderr, "Could not find a item named %s.\n", keyName);
+      fprintf(stderr, "Could not find a item named %s.\n", p_keyName);
 
     else
       fprintf(stderr, errorMessage,
-          keyName, (int)status);
+          p_keyName, (int)status);
 
     return 1;
   }
