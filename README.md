@@ -1,8 +1,8 @@
-# keychain_access
+# keychain\_access
 
-The idea behind keychain_access is to provide Keychain features in the command line.  Apple's [security(1)](http://developer.apple.com/documentation/Darwin/Reference/ManPages/man1/security.1.html) command does already some of this work. Unfortunately there is no convenient way to to access public/private key pairs stored in the Keychain via security(1).
+The idea behind keychain\_access is to provide Keychain features in the command line.  Apple's [security(1)](http://developer.apple.com/documentation/Darwin/Reference/ManPages/man1/security.1.html) command does already some of this work. Unfortunately there is no convenient way to to access public/private key pairs stored in the Keychain via security(1).
 
-This is why I wrote keychain_access.  I wanted to use private keys stored in my keychain in command-line scripts.  This is helpful for signing files for
+This is why I wrote keychain\_access.  I wanted to use private keys stored in my keychain in command-line scripts.  This is helpful for signing files for
 [Sparkles](http://sparkle.andymatuschak.org/) appcast without having to type my password all the time, while at the same time not having to worry that my private key is stored in plaintext on my harddrive.
 
 
@@ -20,7 +20,7 @@ Options:
                   Has to be a public or private key.
 </pre>
 
-If you want to pass a key from the Keychain to an openssl command without the key touching the harddrive, use a named pipe.  This is how I use keychain_access to sign Sparkle updates:
+If you want to pass a key from the Keychain to an openssl command without the key touching the harddrive, use a named pipe.  This is how I use keychain\_access to sign Sparkle updates:
 
 <pre>
 PIPE=$OUTPUT_DIR/key.pipe
@@ -35,12 +35,12 @@ rm $PIPE
 
 ## Installing
 
-Type <code>make</code> and then copy the executable named "keychain_access" to wherever you like in your $PATH.
+Type <code>make</code> and then copy the executable named "keychain\_access" to wherever you like in your $PATH.
 
 
 ## License
 
-MIT, see [keychain_access.c](http://github.com/torsten/keychain_access/tree/master/keychain_access.c).
+MIT, see [keychain\_access.c](http://github.com/torsten/keychain_access/tree/master/keychain_access.c).
 
 
 ## Author
