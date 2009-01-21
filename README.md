@@ -23,13 +23,13 @@ Options:
 If you want to pass a key from the Keychain to an openssl command without the key touching the harddrive, use a named pipe.  This is how I use keychain\_access to sign Sparkle updates:
 
 <pre>
-PIPE=$OUTPUT_DIR/key.pipe
-mkfifo -m 0600 $PIPE
-keychain_access a.unique.name.for.the.private.key > $PIPE &amp;
+PIPE="$OUTPUT_DIR/key.pipe"
+mkfifo -m 0600 "$PIPE"
+keychain_access name.of.the.private.key > "$PIPE" &amp;
 
 SIG=`openssl dgst -sha1 -binary &lt; "$OUTPUT_DIR/$VOL.dmg" | openssl dgst -dss1 -sign "$PIPE" | openssl enc -base64`
 
-rm $PIPE
+rm "$PIPE"
 </pre>
 
 
