@@ -265,7 +265,7 @@ reformat_panic:
 }
 
 
-int kca_print_key(const char *p_keyName, const char *p_keyPassword)
+int kca_print_key(const char *p_keyName, const char *p_keyPassword, SecItemClass p_searchItemClass)
 {
   OSStatus status = 0;
   SecKeychainSearchRef searchRef = 0;
@@ -281,10 +281,9 @@ int kca_print_key(const char *p_keyName, const char *p_keyPassword)
   searchList.count = 1;
   searchList.attr = &labelAttr;
 
-
   status = SecKeychainSearchCreateFromAttributes(
-      NULL, // Search all kechains
-      CSSM_DL_DB_RECORD_ANY,
+      NULL, // Search all keychains
+      p_searchItemClass,
       &searchList,
       &searchRef);
 
@@ -388,10 +387,18 @@ searchFailed:
 void kca_print_help(FILE *p_fp, const char *p_arg0)
 {
   fprintf(p_fp,
-  "Usage: %s [-vh] [-p <password>] <key_name>\n"
+  "Usage: %s [-vh] [-p <password>] [-t <type>] <key_name>\n"
   "Options:\n"
   "  -p <password>   Encrypt exported private keys with <password>.\n"
   "                  The default is to export them without a password.\n"
+  "  -t <type>       The type of item to search for. Supported types: \n"
+  "                    internet-password\n"
+  "                    generic-password\n"
+  "                    apple-share-password\n"
+  "                    certificate\n"
+  "                    public-key\n"
+  "                    private-key\n"
+  "                    symmetric-key\n"
   "  -h              Show this information.\n"
   "  -v              Print current version number.\n"
   "  <key_name>      The name of the keychain item you want to access.\n"
@@ -402,7 +409,7 @@ void kca_print_help(FILE *p_fp, const char *p_arg0)
 void kca_print_version()
 {
 #ifndef KCA_VERSION
-#define KCA_VERSION "v0"
+#define KCA_VERSION "v0.1"
 #endif
 #ifndef KCA_REV
 #define KCA_REV "n/a"
@@ -416,9 +423,9 @@ int main(int p_argc, char **p_argv)
 {
   int option;
   const char *keyPassword = NULL;
+  const char *keyType = NULL;
   
   // TODO:
-  // -t for "type"
   // -a to limit to a certain attribute
   // -o to specify output format
   // --pem
@@ -429,7 +436,7 @@ int main(int p_argc, char **p_argv)
   if(p_argc >= 1)
     arg0 = p_argv[0];
   
-  while((option = getopt(p_argc, p_argv, "vhp:")) != -1)
+  while((option = getopt(p_argc, p_argv, "vhp:t:")) != -1)
   {
     switch(option)
     {
@@ -443,6 +450,10 @@ int main(int p_argc, char **p_argv)
     
     case 'p':
       keyPassword = optarg;
+      break;
+    
+    case 't':
+      keyType = optarg;
       break;
       
     case '?':
@@ -467,6 +478,48 @@ int main(int p_argc, char **p_argv)
     kca_print_help(stderr, arg0);
     return 1;
   }
-  
-  return kca_print_key(keyName, keyPassword);
+    
+  SecItemClass searchItemClass;
+  if(keyType)
+  {
+    if(!strcmp(keyType, "internet-password"))
+    {
+      searchItemClass = kSecInternetPasswordItemClass;
+    }
+    else if(!strcmp(keyType, "generic-password"))
+    {
+      searchItemClass = kSecGenericPasswordItemClass;
+    }
+    else if(!strcmp(keyType, "apple-share-password"))
+    {
+      searchItemClass = kSecAppleSharePasswordItemClass;
+    }
+    else if(!strcmp(keyType, "certificate"))
+    {
+      searchItemClass = kSecCertificateItemClass;
+    }
+    else if(!strcmp(keyType, "public-key"))
+    {
+      searchItemClass = kSecPublicKeyItemClass;
+    }
+    else if(!strcmp(keyType, "private-key"))
+    {
+      searchItemClass = kSecPrivateKeyItemClass;
+    }
+    else if(!strcmp(keyType, "symmetric-key"))
+    {
+      searchItemClass = kSecSymmetricKeyItemClass;
+    }
+    else
+    {
+      fprintf(stderr, "Invalid type: %s\n", keyType);
+      return 2;
+    }
+  }
+  else
+  {
+    searchItemClass = CSSM_DL_DB_RECORD_ALL_KEYS;
+  }
+    
+  return kca_print_key(keyName, keyPassword, searchItemClass);
 }
